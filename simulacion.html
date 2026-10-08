@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conservación de la Energía en Órbita Elíptica</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Chart.js para la serie temporal -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Fira+Code:wght@400;600&display=swap');
+    
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: #030712;
+      color: #f3f4f6;
+      overflow-x: hidden;
+    }
+
+    .fira-font {
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Glow effects */
+    .glow-sun {
+      box-shadow: 0 0 30px #f59e0b, 0 0 60px #d97706;
+    }
+
+    .glow-planet {
+      box-shadow: 0 0 15px #38bdf8;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111827;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4b5563;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 bg-slate-950 text-slate-100">
+
+  <header class="max-w-7xl mx-auto w-full mb-4">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/80 backdrop-blur border border-slate-800 p-4 md:p-6 rounded-2xl shadow-2xl">
+      <div>
+        <div class="flex items-center gap-3 mb-1">
+          <i class="fa-solid font-bold text-amber-400 text-2xl fa-orbit"></i>
+          <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">
+            Conservación de la Energía en Órbita Elíptica
+          </h1>
+        </div>
+        <p class="text-slate-400 text-sm md:text-base">
+          Mecánica Celeste &amp; Leyes de Kepler: Variación de Energía Cinética y Potencial.
+        </p>
+      </div>
+
+      <!-- Quick status badge -->
+      <div class="flex items-center gap-3 bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-xl self-start md:self-auto">
+        <div class="flex flex-col text-right">
+          <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Estado de Energía</span>
+          <span class="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            E_total Constante
+          </span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+    
+    <!-- Canvas & Simulation View (LGL Col 7) -->
+    <section class="lg:col-span-7 flex flex-col gap-4">
+      <div class="relative bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col flex-grow min-h-[420px] justify-center items-center">
+        
+        <!-- Canvas Layer -->
+        <canvas id="orbitCanvas" class="w-full h-full cursor-crosshair block"></canvas>
+
+        <!-- Dynamic Overlay Indicators -->
+        <div class="absolute top-4 left-4 bg-slate-950/80 backdrop-blur border border-slate-800/80 p-3 rounded-xl flex flex-col gap-1.5 text-xs text-slate-300 fira-font shadow-lg">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-amber-400 font-semibold"><i class="fa-solid fa-arrows-to-dot mr-1"></i> Posición:</span>
+            <span id="labelPosition" class="text-slate-100">0.00 UA</span>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-sky-400 font-semibold"><i class="fa-solid fa-gauge-high mr-1"></i> Velocidad:</span>
+            <span id="labelVelocity" class="text-slate-100">0.00 km/s</span>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-compass mr-1"></i> Punto:</span>
+            <span id="labelPoint" class="text-slate-100">Orbitando</span>
+          </div>
+        </div>
+
+        <!-- Legend Overlay (Bottom Canvas) -->
+        <div class="absolute bottom-4 left-4 right-4 bg-slate-950/80 backdrop-blur border border-slate-800/80 px-4 py-2 rounded-xl flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-amber-400 inline-block"></span>
+            <span>Sol (Foco F₁)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-sky-400 inline-block"></span>
+            <span>Planeta</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-1 bg-amber-500/50 rounded inline-block"></span>
+            <span>Perihelio (Cerca)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-1 bg-sky-500/50 rounded inline-block"></span>
+            <span>Afelio (Lejos)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 p-4 md:p-5 rounded-2xl shadow-xl flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <!-- Play / Pause / Reset -->
+          <div class="flex items-center gap-2">
+            <button id="btnPlayPause" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-sky-500/20 active:scale-95">
+              <i class="fa-solid fa-pause" id="iconPlayPause"></i>
+              <span id="textPlayPause">Pausar</span>
+            </button>
+            <button id="btnReset" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all border border-slate-700 active:scale-95">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Reiniciar</span>
+            </button>
+          </div>
+
+          <!-- Vector Options Toggles -->
+          <div class="flex items-center gap-3 text-xs md:text-sm">
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition-colors">
+              <input type="checkbox" id="chkVectors" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-0 focus:ring-offset-0">
+              <span>Vectores (v, F)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition-colors">
+              <input type="checkbox" id="chkTrace" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-0 focus:ring-offset-0">
+              <span>Trayectoria</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">
+          <!-- Excentricidad slider -->
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="text-slate-300">Excentricidad (e):</span>
+              <span id="valEccentricity" class="text-sky-400 fira-font">0.60</span>
+            </div>
+            <input type="range" id="sliderEccentricity" min="0.0" max="0.82" step="0.02" value="0.60" class="w-full accent-sky-400 bg-slate-950 h-2 rounded-lg cursor-pointer border border-slate-800">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>Círculo (e=0)</span>
+              <span>Elipse Alta (e=0.82)</span>
+            </div>
+          </div>
+
+          <!-- Velocidad de simulación slider -->
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="text-slate-300">Velocidad Simulación:</span>
+              <span id="valSpeed" class="text-sky-400 fira-font">1.0x</span>
+            </div>
+            <input type="range" id="sliderSpeed" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full accent-sky-400 bg-slate-950 h-2 rounded-lg cursor-pointer border border-slate-800">
+            <div class="flex justify-between text-[10px] text-slate-500">
+              <span>0.2x Lento</span>
+              <span>3.0x Rápido</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lg:col-span-5 flex flex-col gap-6">
+      
+      <!-- Panel de Barras de Energía -->
+      <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col gap-4">
+        <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+          <i class="fa-solid fa-chart-column text-sky-400"></i>
+          Niveles de Energía Instantánea
+        </h2>
+
+        <!-- Energía Cinética (Ec) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-sm font-semibold">
+            <span class="text-sky-400 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+              Energía Cinética (E<sub>c</sub>)
+            </span>
+            <span id="valEc" class="text-sky-400 fira-font">0.00 J</span>
+          </div>
+          <div class="w-full h-4 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+            <div id="barEc" class="h-full bg-gradient-to-r from-sky-500 to-cyan-400 rounded-full transition-all duration-75" style="width: 50%;"></div>
+          </div>
+        </div>
+
+        <!-- Energía Potencial Gravitatoria (Ep) -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-sm font-semibold">
+            <span class="text-amber-400 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              Energía Potencial (E<sub>p</sub>)
+            </span>
+            <span id="valEp" class="text-amber-400 fira-font">0.00 J</span>
+          </div>
+          <div class="w-full h-4 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+            <div id="barEp" class="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-75" style="width: 50%;"></div>
+          </div>
+        </div>
+
+        <!-- Energía Mecánica Total (Etotal) -->
+        <div class="space-y-1.5 pt-2 border-t border-slate-800/80">
+          <div class="flex justify-between text-sm font-semibold">
+            <span class="text-emerald-400 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              Energía Total (E<sub>mec</sub> = E<sub>c</sub> + E<sub>p</sub>)
+            </span>
+            <span id="valEtotal" class="text-emerald-400 fira-font">0.00 J</span>
+          </div>
+          <div class="w-full h-5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+            <div id="barEtotal" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-75" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfico de Serie Temporal (Chart.js) -->
+      <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col gap-3 flex-grow min-h-[220px]">
+        <h2 class="text-sm font-bold text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-emerald-400"></i>
+            Evolución en el Tiempo
+          </span>
+          <span class="text-[11px] font-normal text-slate-400">Conservación $E_{total} = \text{cte}$</span>
+        </h2>
+        <div class="relative w-full h-full min-h-[160px]">
+          <canvas id="energyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Explicación Didáctica -->
+      <div class="bg-slate-900/50 border border-slate-800/80 p-4 rounded-2xl text-xs text-slate-400 space-y-2 leading-relaxed">
+        <p class="font-semibold text-slate-200 text-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-lightbulb text-amber-400"></i> ¿Qué ocurre físicamente?
+        </p>
+        <p>
+          • <strong class="text-amber-400">Perihelio (Punto más cercano):</strong> La distancia $r$ es mínima. La energía potencial gravitatoria $E_p = -\frac{GMm}{r}$ alcanza su valor más bajo (más negativo). Para conservar la energía, la velocidad aumenta al máximo, elevando la energía cinética $E_c$.
+        </p>
+        <p>
+          • <strong class="text-sky-400">Afelio (Punto más lejano):</strong> La distancia $r$ es máxima, $E_p$ aumenta (se vuelve menos negativa) y el cuerpo frena, reduciendo $E_c$.
+        </p>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // Variables de configuración de la simulación
+    const canvas = document.getElementById('orbitCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Estado del Sistema
+    let isRunning = true;
+    let simSpeed = 1.0;
+    let eccentricity = 0.60;
+    let showVectors = true;
+    let showTrace = true;
+
+    // Constantes físicas normalizadas
+    const G = 1000;          // Constante gravitatoria simulada
+    const M = 1000;          // Masa del Sol / Estrella central
+    const m = 1;             // Masa del Planeta
+    const semiMajorAxis = 160; // Semieje mayor (a) en píxeles
+
+    // Posición y Velocidad del Planeta (se recalculan al reiniciar)
+    let posX, posY, velX, velY;
+    let orbitHistory = [];
+    const maxHistory = 300;
+
+    // Trazado de Serie Temporal
+    let timeStep = 0;
+    const maxChartPoints = 120;
+
+    // Referencias a UI
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    const iconPlayPause = document.getElementById('iconPlayPause');
+    const textPlayPause = document.getElementById('textPlayPause');
+    const btnReset = document.getElementById('btnReset');
+    const sliderEccentricity = document.getElementById('sliderEccentricity');
+    const valEccentricity = document.getElementById('valEccentricity');
+    const sliderSpeed = document.getElementById('sliderSpeed');
+    const valSpeed = document.getElementById('valSpeed');
+    const chkVectors = document.getElementById('chkVectors');
+    const chkTrace = document.getElementById('chkTrace');
+
+    // UI Labels & Bars
+    const labelPosition = document.getElementById('labelPosition');
+    const labelVelocity = document.getElementById('labelVelocity');
+    const labelPoint = document.getElementById('labelPoint');
+    const valEc = document.getElementById('valEc');
+    const valEp = document.getElementById('valEp');
+    const valEtotal = document.getElementById('valEtotal');
+    const barEc = document.getElementById('barEc');
+    const barEp = document.getElementById('barEp');
+    const barEtotal = document.getElementById('barEtotal');
+
+    // Adjust canvas dimensions dynamically
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function initOrbit() {
+      orbitHistory = [];
+      timeStep = 0;
+
+      // Geometría elíptica:
+      // Semieje mayor 'a' = semiMajorAxis
+      // Foco c = a * e
+      // En el perihelio (distancia mínima r_min = a * (1 - e))
+      const e = eccentricity;
+      const a = semiMajorAxis;
+      const r_perihelion = a * (1 - e);
+
+      // Velocidad teórica en el perihelio: v = sqrt( G * M * ( (2 / r) - (1 / a) ) )
+      const v_perihelion = Math.sqrt(G * M * ((2 / r_perihelion) - (1 / a)));
+
+      // Colocamos el Sol en la posición del Foco 1 (F1)
+      // Definimos el origen de coordenadas de la simulación en el Sol (0,0)
+      // El perihelio está en la dirección (-r_perihelion, 0)
+      posX = -r_perihelion;
+      posY = 0;
+
+      // La velocidad en el perihelio es perpendicular, apuntando hacia abajo (-Y en canvas si Y crece abajo)
+      velX = 0;
+      velY = -v_perihelion;
+
+      if (energyChart) {
+        energyChart.data.labels = [];
+        energyChart.data.datasets.forEach(ds => ds.data = []);
+        energyChart.update();
+      }
+    }
+
+    const chartCtx = document.getElementById('energyChart').getContext('2d');
+    const energyChart = new Chart(chartCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Ec (Cinética)',
+            data: [],
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.2,
+            fill: false
+          },
+          {
+            label: 'Ep (Potencial)',
+            data: [],
+            borderColor: '#fbbf24',
+            backgroundColor: 'rgba(251, 191, 36, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.2,
+            fill: false
+          },
+          {
+            label: 'E total',
+            data: [],
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52, 211, 153, 0.1)',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            tension: 0,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: {
+            display: false
+          },
+          y: {
+            grid: {
+              color: '#1e293b'
+            },
+            ticks: {
+              color: '#94a3b8',
+              font: { size: 10, family: 'Fira Code' }
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: '#cbd5e1',
+              font: { size: 11, family: 'Outfit' },
+              boxWidth: 12
+            }
+          }
+        }
+      }
+    });
+
+    function updatePhysics(dt) {
+      // Subpasos para mayor precisión numérica
+      const steps = 10;
+      const subDt = (dt * simSpeed) / steps;
+
+      for (let s = 0; s < steps; s++) {
+        // Distancia actual al sol (origen [0,0])
+        const r2 = posX * posX + posY * posY;
+        const r = Math.sqrt(r2);
+
+        // Fuerza gravitatoria ley del inverso del cuadrado: F = G * M * m / r^2
+        // Aceleración a = F / m = G * M / r^2
+        const accel = (G * M) / r2;
+
+        // Componentes vectoriales de la aceleración (hacia el origen 0,0)
+        const ax = -accel * (posX / r);
+        const ay = -accel * (posY / r);
+
+        // Integración de Euler-Cromer
+        velX += ax * subDt;
+        velY += ay * subDt;
+
+        posX += velX * subDt;
+        posY += velY * subDt;
+      }
+
+      // Guardar historial para el trazado
+      orbitHistory.push({ x: posX, y: posY });
+      if (orbitHistory.length > maxHistory) {
+        orbitHistory.shift();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const centerX = canvas.width / 2 + (semiMajorAxis * eccentricity * 0.5);
+      const centerY = canvas.height / 2;
+
+      // Dibuja el fondo de estrellas tenue
+      ctx.fillStyle = '#030712';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(centerX, centerY);
+
+      // 1. Dibujar elipse teórica de referencia
+      const a = semiMajorAxis;
+      const e = eccentricity;
+      const b = a * Math.sqrt(1 - e * e);
+      const focusOffset = a * e; // Distancia del centro de la elipse al foco
+
+      ctx.beginPath();
+      ctx.ellipse(-focusOffset, 0, a, b, 0, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 2. Dibujar historial de trayectoria real si está activo
+      if (showTrace && orbitHistory.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < orbitHistory.length; i++) {
+          const pt = orbitHistory[i];
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // 3. Dibujar Sol en el Foco (0,0)
+      const sunGradient = ctx.createRadialGradient(0, 0, 3, 0, 0, 22);
+      sunGradient.addColorStop(0, '#fef08a');
+      sunGradient.addColorStop(0.4, '#f59e0b');
+      sunGradient.addColorStop(1, 'rgba(217, 119, 6, 0)');
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, 2 * Math.PI);
+      ctx.fillStyle = sunGradient;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fef08a';
+      ctx.fill();
+
+      // 4. Dibujar Planeta en posición actual (posX, posY)
+      const r = Math.sqrt(posX * posX + posY * posY);
+
+      // Sombra/Brillo del planeta
+      const planetGradient = ctx.createRadialGradient(posX, posY, 1, posX, posY, 10);
+      planetGradient.addColorStop(0, '#e0f2fe');
+      planetGradient.addColorStop(0.5, '#38bdf8');
+      planetGradient.addColorStop(1, 'rgba(14, 165, 233, 0)');
+
+      ctx.beginPath();
+      ctx.arc(posX, posY, 12, 0, 2 * Math.PI);
+      ctx.fillStyle = planetGradient;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(posX, posY, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fill();
+
+      // 5. Dibujar Vectores de Velocidad y Fuerza si está activado
+      if (showVectors) {
+        // Vector de Velocidad (Azul Cian)
+        const vScale = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(posX, posY);
+        ctx.lineTo(posX + velX * vScale, posY + velY * vScale);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Flecha de Velocidad
+        drawArrowHead(ctx, posX + velX * vScale, posY + velY * vScale, Math.atan2(velY, velX), '#38bdf8');
+
+        // Vector de Fuerza Gravitatoria hacia el Sol (Naranja/Rojo)
+        const fScale = 18000 / (r * r); // Escala visual proporcional
+        const angleToSun = Math.atan2(-posY, -posX);
+        ctx.beginPath();
+        ctx.moveTo(posX, posY);
+        ctx.lineTo(posX + Math.cos(angleToSun) * fScale, posY + Math.sin(angleToSun) * fScale);
+        ctx.strokeStyle = '#f97316';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Flecha de Fuerza
+        drawArrowHead(ctx, posX + Math.cos(angleToSun) * fScale, posY + Math.sin(angleToSun) * fScale, angleToSun, '#f97316');
+      }
+
+      ctx.restore();
+    }
+
+    function drawArrowHead(context, x, y, angle, color) {
+      const headLen = 7;
+      context.save();
+      context.fillStyle = color;
+      context.beginPath();
+      context.translate(x, y);
+      context.rotate(angle);
+      context.moveTo(0, 0);
+      context.lineTo(-headLen, -headLen / 1.5);
+      context.lineTo(-headLen, headLen / 1.5);
+      context.closePath();
+      context.fill();
+      context.restore();
+    }
+
+    function updateEnergyUI() {
+      const r = Math.sqrt(posX * posX + posY * posY);
+      const v2 = velX * velX + velY * velY;
+      const v = Math.sqrt(v2);
+
+      // Energía Cinética Ec = 0.5 * m * v^2
+      const Ec = 0.5 * m * v2;
+
+      // Energía Potencial Gravitatoria Ep = - G * M * m / r
+      // Para una visualización clara en barras positivas, sumamos una constante de referencia Ep_ref
+      const Ep_raw = -(G * M * m) / r;
+      
+      // Con semieje a = semiMajorAxis, E_total = - G*M*m / (2*a)
+      const E_total_raw = -(G * M * m) / (2 * semiMajorAxis);
+
+      // Desplazamos la escala para mostrar valores positivos e intuitivos
+      const E_offset = (G * M * m) / (semiMajorAxis * (1 - eccentricity)); // Valor positivo base
+      const Ec_disp = Ec;
+      const Ep_disp = Ep_raw + E_offset;
+      const Etotal_disp = Ec_disp + Ep_disp;
+
+      // Actualizar valores de texto
+      labelPosition.textContent = `${(r / 100).toFixed(2)} UA`;
+      labelVelocity.textContent = `${(v * 3.5).toFixed(1)} km/s`;
+
+      // Identificar perihelio / afelio
+      const a = semiMajorAxis;
+      const e = eccentricity;
+      const r_peri = a * (1 - e);
+      const r_aph = a * (1 + e);
+
+      if (Math.abs(r - r_peri) < 10) {
+        labelPoint.textContent = 'Perihelio (Máx. Vel)';
+        labelPoint.className = 'text-amber-400 font-bold';
+      } else if (Math.abs(r - r_aph) < 10) {
+        labelPoint.textContent = 'Afelio (Mín. Vel)';
+        labelPoint.className = 'text-sky-400 font-bold';
+      } else {
+        labelPoint.textContent = 'Orbitando';
+        labelPoint.className = 'text-slate-100 font-normal';
+      }
+
+      // Actualizar visualización de las barras de energía
+      const maxEnergyBar = E_offset * 1.2;
+      const pctEc = Math.min(100, Math.max(2, (Ec_disp / maxEnergyBar) * 100));
+      const pctEp = Math.min(100, Math.max(2, (Ep_disp / maxEnergyBar) * 100));
+      const pctEtotal = Math.min(100, Math.max(2, (Etotal_disp / maxEnergyBar) * 100));
+
+      barEc.style.width = `${pctEc}%`;
+      barEp.style.width = `${pctEp}%`;
+      barEtotal.style.width = `${pctEtotal}%`;
+
+      valEc.textContent = `${Ec_disp.toFixed(0)} J`;
+      valEp.textContent = `${Ep_disp.toFixed(0)} J`;
+      valEtotal.textContent = `${Etotal_disp.toFixed(0)} J`;
+
+      // Actualizar Gráfico Chart.js
+      timeStep++;
+      if (timeStep % 2 === 0) {
+        const labels = energyChart.data.labels;
+        labels.push('');
+        energyChart.data.datasets[0].data.push(Ec_disp);
+        energyChart.data.datasets[1].data.push(Ep_disp);
+        energyChart.data.datasets[2].data.push(Etotal_disp);
+
+        if (labels.length > maxChartPoints) {
+          labels.shift();
+          energyChart.data.datasets.forEach(ds => ds.data.shift());
+        }
+        energyChart.update();
+      }
+    }
+
+    let lastTime = performance.now();
+
+    function loop(currentTime) {
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.05); // cap delta time
+      lastTime = currentTime;
+
+      if (isRunning) {
+        updatePhysics(dt);
+        updateEnergyUI();
+      }
+
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    btnPlayPause.addEventListener('click', () => {
+      isRunning = !isRunning;
+      if (isRunning) {
+        iconPlayPause.className = 'fa-solid fa-pause';
+        textPlayPause.textContent = 'Pausar';
+      } else {
+        iconPlayPause.className = 'fa-solid fa-play';
+        textPlayPause.textContent = 'Reanudar';
+      }
+    });
+
+    btnReset.addEventListener('click', () => {
+      initOrbit();
+    });
+
+    sliderEccentricity.addEventListener('input', (e) => {
+      eccentricity = parseFloat(e.target.value);
+      valEccentricity.textContent = eccentricity.toFixed(2);
+      initOrbit();
+    });
+
+    sliderSpeed.addEventListener('input', (e) => {
+      simSpeed = parseFloat(e.target.value);
+      valSpeed.textContent = `${simSpeed.toFixed(1)}x`;
+    });
+
+    chkVectors.addEventListener('change', (e) => {
+      showVectors = e.target.checked;
+    });
+
+    chkTrace.addEventListener('change', (e) => {
+      showTrace = e.target.checked;
+    });
+
+    // Arrancar la simulación al cargar la página
+    window.onload = () => {
+      initOrbit();
+      requestAnimationFrame(loop);
+    };
+  </script>
+</body>
+</html>
